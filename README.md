@@ -38,6 +38,8 @@ pip install paddleocr paddlepaddle opencv-python
 
 ## 使用方式
 
+项目根目录下已预留 `invoices/` 目录，用来放置待识别的发票图片、付款记录截图或 PDF。真实票据属于敏感数据，目录中的文件默认不会被 Git 提交。
+
 开发/测试模式，图片旁边放一个同名 `.txt` 文件：
 
 ```bash
