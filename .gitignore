@@ -7,6 +7,7 @@ invoices/*
 !invoices/.gitkeep
 .conda-envs/
 .conda-pkgs/
+.tessdata/
 
 # C extensions
 *.so

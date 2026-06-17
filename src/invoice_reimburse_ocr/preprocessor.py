@@ -3,6 +3,8 @@ from __future__ import annotations
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
+import shutil
+import subprocess
 from tempfile import TemporaryDirectory
 from typing import Iterator
 
@@ -22,9 +24,17 @@ def preprocess_for_ocr(file_path: Path) -> Iterator[PreprocessResult]:
         return
 
     with TemporaryDirectory(prefix="invoice_ocr_") as temp_dir:
+        source_path = _convert_heic_if_needed(file_path, Path(temp_dir))
         output_path = Path(temp_dir) / f"{file_path.stem}_preprocessed.png"
-        warnings = preprocess_image(file_path, output_path)
+        warnings = preprocess_image(source_path, output_path)
         yield PreprocessResult(path=output_path, warnings=warnings)
+
+
+def normalize_image_for_ocr(file_path: Path, output_dir: Path) -> Path:
+    source_path = _convert_heic_if_needed(file_path, output_dir)
+    output_path = output_dir / f"{file_path.stem}_preprocessed.png"
+    preprocess_image(source_path, output_path)
+    return output_path
 
 
 def preprocess_image(input_path: Path, output_path: Path) -> list[str]:
@@ -74,3 +84,21 @@ def _deskew_with_opencv_if_available(image: Image.Image) -> Image.Image:
         borderMode=cv2.BORDER_REPLICATE,
     )
     return Image.fromarray(rotated)
+
+
+def _convert_heic_if_needed(file_path: Path, output_dir: Path) -> Path:
+    if file_path.suffix.lower() not in {".heic", ".heif"}:
+        return file_path
+    sips = shutil.which("sips")
+    if not sips:
+        raise RuntimeError("当前系统无法转换 HEIC，请先转换为 PNG/JPG 或安装 HEIC 支持")
+    output_path = output_dir / f"{file_path.stem}.png"
+    result = subprocess.run(
+        [sips, "-s", "format", "png", str(file_path), "--out", str(output_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"HEIC 转换失败：{result.stderr.strip() or result.stdout.strip()}")
+    return output_path

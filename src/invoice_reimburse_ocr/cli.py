@@ -14,9 +14,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", default=".", help="输出根目录，默认项目当前目录")
     parser.add_argument(
         "--ocr-engine",
-        choices=["paddle", "sidecar"],
+        choices=["paddle", "tesseract", "sidecar"],
         default="sidecar",
-        help="OCR 引擎：paddle 为真实 OCR，sidecar 读取同名 .txt 便于测试",
+        help="OCR 引擎：paddle/tesseract 为真实 OCR，sidecar 读取同名 .txt 便于测试",
     )
     parser.add_argument(
         "--exchange-rate",

@@ -13,6 +13,8 @@ def parse_invoice_text(text: str) -> InvoiceRecord:
     normalized = _normalize_text(text)
     if _looks_like_payment_record(normalized):
         return parse_payment_text(text)
+    if _looks_like_receipt(normalized):
+        return parse_receipt_text(text)
 
     record = InvoiceRecord(raw_text=text)
     record.currency = _detect_currency(normalized)
@@ -58,6 +60,8 @@ def parse_invoice_text(text: str) -> InvoiceRecord:
         r"销售方[\s\S]{0,40}?纳税人识别号[:：]?\s*([A-Z0-9]{15,25})",
     ]))
     record.check_code = _first_match(normalized, [r"校验码[:：]?\s*(\d{6,20})"])
+    if not record.invoice_code and not record.invoice_number and (record.invoice_date or record.amount_without_tax or record.total_amount):
+        return parse_receipt_text(text)
     return record
 
 
@@ -102,10 +106,38 @@ def parse_payment_text(text: str) -> InvoiceRecord:
     return record
 
 
+def parse_receipt_text(text: str) -> InvoiceRecord:
+    normalized = _normalize_text(text)
+    record = InvoiceRecord(raw_text=text, document_type="消费记录")
+    record.currency = _detect_currency(normalized)
+    record.payment_date = _normalize_date(_first_match(normalized, [
+        r"(\d{4}[年./-]\d{1,2}[月./-]\d{1,2}日?)",
+        r"(\d{1,2}[./-]\d{1,2}[./-]\d{2,4})",
+    ]))
+    record.payee_name = _guess_receipt_merchant(normalized)
+    record.payment_method = _first_match(normalized, [
+        r"(Barzahlung|Cash|Visa|Mastercard|Kreditkarte|Alipay|Wechat|微信|支付宝)",
+    ])
+    record.total_amount = _parse_amount(_first_match(normalized, [
+        rf"(?:Summe|Total|Gesamt|Betrag|Amount|合计|总计|实付)[:：]?\s*{AMOUNT_PATTERN}",
+        rf"(?:金额|费用|消费|付款|支付)[:：]?\s*{AMOUNT_PATTERN}",
+        rf"{AMOUNT_PATTERN}\s*(?:EUR|USD|GBP|HKD|JPY|€|\$|£)?\s*$",
+    ]))
+    if record.total_amount is None:
+        record.total_amount = _parse_amount(_first_match(normalized, [
+            rf"{AMOUNT_PATTERN}"
+        ]))
+    return record
+
+
 def _looks_like_payment_record(text: str) -> bool:
     if re.search(r"发票代码|发票号码|价税合计|合计税额", text):
         return False
     return bool(re.search(r"付款记录|支付凭证|交易单号|付款金额|支付金额|收款方|收款人|付款方", text))
+
+
+def _looks_like_receipt(text: str) -> bool:
+    return bool(re.search(r"Rechnung|Receipt|Kassa|Barzahlung|Mwst|Total|Summe|消费|小票|收据", text, flags=re.IGNORECASE))
 
 
 def _normalize_text(text: str) -> str:
@@ -127,10 +159,12 @@ def _normalize_date(value: str) -> str:
         return ""
     cleaned = value.strip().replace("年", "-").replace("月", "-").replace("日", "")
     cleaned = cleaned.replace("/", "-").replace(".", "-")
-    try:
-        return datetime.strptime(cleaned, "%Y-%m-%d").strftime("%Y-%m-%d")
-    except ValueError:
-        return ""
+    for date_format in ("%Y-%m-%d", "%d-%m-%Y", "%d-%m-%y"):
+        try:
+            return datetime.strptime(cleaned, date_format).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    return ""
 
 
 def _parse_amount(value: str) -> float | None:
@@ -150,6 +184,7 @@ def _detect_currency(text: str) -> str:
     currency_patterns = [
         ("USD", [r"\bUSD\b", r"美元", r"US\$"]),
         ("EUR", [r"\bEUR\b", r"欧元", r"€"]),
+        ("EUR", [r"\bATU\d{8}\b", r"\bWien\b", r"\bMwst\b", r"\bBarzahlung\b"]),
         ("GBP", [r"\bGBP\b", r"英镑", r"£"]),
         ("HKD", [r"\bHKD\b", r"港币", r"港元"]),
         ("JPY", [r"\bJPY\b", r"日元"]),
@@ -159,3 +194,11 @@ def _detect_currency(text: str) -> str:
         if any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in patterns):
             return currency
     return "CNY"
+
+
+def _guess_receipt_merchant(text: str) -> str:
+    for line in text.splitlines():
+        cleaned = line.strip(" ：:;，,")
+        if len(cleaned) >= 3 and not re.match(r"^[\d\s.,:/-]+$", cleaned):
+            return cleaned
+    return ""
