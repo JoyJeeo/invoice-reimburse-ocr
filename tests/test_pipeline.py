@@ -42,7 +42,8 @@ def test_process_folder_exports_clean_reimbursement_file(tmp_path: Path):
     assert headers == REIMBURSEMENT_COLUMNS
     assert "原始文件名" not in headers
     assert "识别状态" not in headers
-    assert ws.cell(row=2, column=6).value == 106.53
+    assert ws.cell(row=2, column=1).value == "发票"
+    assert ws.cell(row=2, column=9).value == 106.53
 
 
 def test_process_folder_exports_currency_columns(tmp_path: Path):
@@ -72,8 +73,45 @@ def test_process_folder_exports_currency_columns(tmp_path: Path):
     wb = load_workbook(result.reimbursement_file)
     ws = wb.active
     headers = [cell.value for cell in ws[1]]
-    assert headers[6:10] == ["币种", "原币种费用", "汇率", "人民币费用"]
-    assert ws.cell(row=2, column=7).value == "USD"
-    assert ws.cell(row=2, column=8).value == 106.0
-    assert ws.cell(row=2, column=9).value == 7.2
-    assert ws.cell(row=2, column=10).value == 763.2
+    assert headers[9:13] == ["币种", "原币种费用", "汇率", "人民币费用"]
+    assert ws.cell(row=2, column=10).value == "USD"
+    assert ws.cell(row=2, column=11).value == 106.0
+    assert ws.cell(row=2, column=12).value == 7.2
+    assert ws.cell(row=2, column=13).value == 763.2
+
+
+def test_process_folder_exports_payment_records_and_deduplicates(tmp_path: Path):
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    first = input_dir / "payment_1.jpg"
+    second = input_dir / "payment_2.jpg"
+    first.write_bytes(b"fake image bytes")
+    second.write_bytes(b"fake image bytes")
+    payment_text = """
+    支付凭证
+    交易单号: PAY202606170001
+    付款日期: 2026-06-17
+    付款金额: ￥88.66
+    付款方: 上海测试科技有限公司
+    收款方: 北京服务有限公司
+    支付方式: 银行转账
+    """
+    first.with_suffix(".txt").write_text(payment_text, encoding="utf-8")
+    second.with_suffix(".txt").write_text(payment_text, encoding="utf-8")
+
+    result = process_folder(input_dir, tmp_path, SidecarTextOCREngine())
+
+    wb = load_workbook(result.reimbursement_file)
+    ws = wb.active
+    assert ws.max_row == 2
+    assert ws.cell(row=2, column=1).value == "付款记录"
+    assert ws.cell(row=2, column=5).value == "2026-06-17"
+    assert ws.cell(row=2, column=6).value == "PAY202606170001"
+    assert ws.cell(row=2, column=9).value == 88.66
+    assert ws.cell(row=2, column=18).value == "上海测试科技有限公司"
+    assert ws.cell(row=2, column=19).value == "北京服务有限公司"
+
+    log_wb = load_workbook(result.log_file)
+    log_ws = log_wb.active
+    statuses = [log_ws.cell(row=row, column=3).value for row in range(2, log_ws.max_row + 1)]
+    assert "重复已去重" in statuses

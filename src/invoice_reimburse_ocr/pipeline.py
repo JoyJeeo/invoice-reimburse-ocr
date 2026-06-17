@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
+from .dedup import deduplicate_records
 from .exporter import create_run_output_dir, export_processing_log, export_reimbursement, export_template
 from .exchange import RateProvider, apply_exchange_rates
 from .file_scanner import discover_input_files
@@ -35,9 +36,10 @@ def process_folder(
     if rate_provider is None:
         rate_provider = lambda currency: 1.0
     apply_exchange_rates(records, rate_provider)
+    reimbursement_records = deduplicate_records(records)
     validate_records(records)
     template_file = export_template(output_dir)
-    reimbursement_file = export_reimbursement(records, output_dir, timestamp)
+    reimbursement_file = export_reimbursement(reimbursement_records, output_dir, timestamp)
     log_file = export_processing_log(records, output_dir)
     return ProcessResult(
         output_dir=output_dir,

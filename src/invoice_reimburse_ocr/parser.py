@@ -6,8 +6,14 @@ from datetime import datetime
 from .models import InvoiceRecord
 
 
+AMOUNT_PATTERN = r"(?:[￥¥$€£]|USD|EUR|GBP|HKD|JPY|CNY|RMB)?\s*([0-9,]+(?:\.\d{1,2})?)"
+
+
 def parse_invoice_text(text: str) -> InvoiceRecord:
     normalized = _normalize_text(text)
+    if _looks_like_payment_record(normalized):
+        return parse_payment_text(text)
+
     record = InvoiceRecord(raw_text=text)
     record.currency = _detect_currency(normalized)
     record.invoice_code = _first_match(normalized, [
@@ -23,17 +29,17 @@ def parse_invoice_text(text: str) -> InvoiceRecord:
         r"日期[:：]?\s*(\d{4}[年./-]\d{1,2}[月./-]\d{1,2}日?)",
     ]))
     record.amount_without_tax = _parse_amount(_first_match(normalized, [
-        r"合计金额[:：]?\s*(?:[￥¥$€£]|USD|EUR|GBP|HKD|JPY|CNY|RMB)?\s*([0-9,]+(?:\.\d{1,2})?)",
-        r"不含税金额[:：]?\s*(?:[￥¥$€£]|USD|EUR|GBP|HKD|JPY|CNY|RMB)?\s*([0-9,]+(?:\.\d{1,2})?)",
-        r"金额[:：]?\s*(?:[￥¥$€£]|USD|EUR|GBP|HKD|JPY|CNY|RMB)?\s*([0-9,]+(?:\.\d{1,2})?)",
+        rf"合计金额[:：]?\s*{AMOUNT_PATTERN}",
+        rf"不含税金额[:：]?\s*{AMOUNT_PATTERN}",
+        rf"金额[:：]?\s*{AMOUNT_PATTERN}",
     ]))
     record.tax_amount = _parse_amount(_first_match(normalized, [
-        r"合计税额[:：]?\s*(?:[￥¥$€£]|USD|EUR|GBP|HKD|JPY|CNY|RMB)?\s*([0-9,]+(?:\.\d{1,2})?)",
-        r"税额[:：]?\s*(?:[￥¥$€£]|USD|EUR|GBP|HKD|JPY|CNY|RMB)?\s*([0-9,]+(?:\.\d{1,2})?)",
+        rf"合计税额[:：]?\s*{AMOUNT_PATTERN}",
+        rf"税额[:：]?\s*{AMOUNT_PATTERN}",
     ]))
     record.total_amount = _parse_amount(_first_match(normalized, [
-        r"价税合计(?:\(小写\))?[:：]?\s*(?:[￥¥$€£]|USD|EUR|GBP|HKD|JPY|CNY|RMB)?\s*([0-9,]+(?:\.\d{1,2})?)",
-        r"含税金额[:：]?\s*(?:[￥¥$€£]|USD|EUR|GBP|HKD|JPY|CNY|RMB)?\s*([0-9,]+(?:\.\d{1,2})?)",
+        rf"价税合计(?:\(小写\))?[:：]?\s*{AMOUNT_PATTERN}",
+        rf"含税金额[:：]?\s*{AMOUNT_PATTERN}",
     ]))
     record.buyer_name = _first_match(normalized, [
         r"购买方名称[:：]?\s*([^\n]+)",
@@ -53,6 +59,53 @@ def parse_invoice_text(text: str) -> InvoiceRecord:
     ]))
     record.check_code = _first_match(normalized, [r"校验码[:：]?\s*(\d{6,20})"])
     return record
+
+
+def parse_payment_text(text: str) -> InvoiceRecord:
+    normalized = _normalize_text(text)
+    record = InvoiceRecord(raw_text=text, document_type="付款记录")
+    record.currency = _detect_currency(normalized)
+    record.payment_date = _normalize_date(_first_match(normalized, [
+        r"付款时间[:：]?\s*(\d{4}[年./-]\d{1,2}[月./-]\d{1,2}日?)",
+        r"支付时间[:：]?\s*(\d{4}[年./-]\d{1,2}[月./-]\d{1,2}日?)",
+        r"交易时间[:：]?\s*(\d{4}[年./-]\d{1,2}[月./-]\d{1,2}日?)",
+        r"付款日期[:：]?\s*(\d{4}[年./-]\d{1,2}[月./-]\d{1,2}日?)",
+        r"日期[:：]?\s*(\d{4}[年./-]\d{1,2}[月./-]\d{1,2}日?)",
+    ]))
+    record.transaction_id = _first_match(normalized, [
+        r"交易单号[:：]?\s*([A-Z0-9-]{6,64})",
+        r"订单号[:：]?\s*([A-Z0-9-]{6,64})",
+        r"流水号[:：]?\s*([A-Z0-9-]{6,64})",
+        r"商户订单号[:：]?\s*([A-Z0-9-]{6,64})",
+    ])
+    record.total_amount = _parse_amount(_first_match(normalized, [
+        rf"付款金额[:：]?\s*{AMOUNT_PATTERN}",
+        rf"支付金额[:：]?\s*{AMOUNT_PATTERN}",
+        rf"交易金额[:：]?\s*{AMOUNT_PATTERN}",
+        rf"实付金额[:：]?\s*{AMOUNT_PATTERN}",
+        rf"金额[:：]?\s*{AMOUNT_PATTERN}",
+    ]))
+    record.payer_name = _first_match(normalized, [
+        r"付款方[:：]?\s*([^\n]+)",
+        r"付款人[:：]?\s*([^\n]+)",
+        r"支付方[:：]?\s*([^\n]+)",
+    ])
+    record.payee_name = _first_match(normalized, [
+        r"收款方[:：]?\s*([^\n]+)",
+        r"收款人[:：]?\s*([^\n]+)",
+        r"商户名称[:：]?\s*([^\n]+)",
+    ])
+    record.payment_method = _first_match(normalized, [
+        r"付款方式[:：]?\s*([^\n]+)",
+        r"支付方式[:：]?\s*([^\n]+)",
+    ])
+    return record
+
+
+def _looks_like_payment_record(text: str) -> bool:
+    if re.search(r"发票代码|发票号码|价税合计|合计税额", text):
+        return False
+    return bool(re.search(r"付款记录|支付凭证|交易单号|付款金额|支付金额|收款方|收款人|付款方", text))
 
 
 def _normalize_text(text: str) -> str:

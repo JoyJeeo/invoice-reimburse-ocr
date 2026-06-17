@@ -39,8 +39,8 @@ def export_reimbursement(records: list[InvoiceRecord], output_dir: Path, timesta
         row = record.to_reimbursement_row()
         ws.append([row[column] for column in REIMBURSEMENT_COLUMNS])
     _format_sheet(ws)
-    _format_amount_columns(ws, [4, 5, 6, 8, 10])
-    _format_rate_column(ws, 9)
+    _format_amount_columns(ws, [7, 8, 9, 11, 13])
+    _format_rate_column(ws, 12)
     wb.save(path)
     return path
 
@@ -50,14 +50,16 @@ def export_processing_log(records: list[InvoiceRecord], output_dir: Path) -> Pat
     wb = Workbook()
     ws = wb.active
     ws.title = "处理日志"
-    headers = ["原始文件名", "识别状态", "错误信息", "发票号码", "币种", "汇率"]
+    headers = ["原始文件名", "单据类型", "识别状态", "错误信息", "发票号码", "交易单号", "币种", "汇率"]
     ws.append(headers)
     for record in records:
         ws.append([
             record.source_file,
+            record.document_type,
             record.status,
             "；".join(record.errors),
             record.invoice_number,
+            record.transaction_id,
             record.currency,
             record.exchange_rate,
         ])
