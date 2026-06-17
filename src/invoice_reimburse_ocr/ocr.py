@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Protocol
 
+from .preprocessor import preprocess_for_ocr
+
 
 class OCREngine(Protocol):
     def extract_text(self, file_path: Path) -> str:
@@ -28,7 +30,8 @@ class PaddleOCREngine:
         self._ocr = PaddleOCR(use_angle_cls=True, lang="ch", show_log=False)
 
     def extract_text(self, file_path: Path) -> str:
-        result = self._ocr.ocr(str(file_path), cls=True)
+        with preprocess_for_ocr(file_path) as preprocessed:
+            result = self._ocr.ocr(str(preprocessed.path), cls=True)
         lines: list[str] = []
         for page in result or []:
             for item in page or []:

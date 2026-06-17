@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 from openpyxl import load_workbook
 
@@ -35,6 +36,7 @@ def test_process_folder_exports_clean_reimbursement_file(tmp_path: Path):
     assert result.template_file.exists()
     assert result.reimbursement_file.exists()
     assert result.log_file.exists()
+    assert re.fullmatch(r"\d{8}_\d{6}", result.output_dir.name)
 
     wb = load_workbook(result.reimbursement_file)
     ws = wb.active
@@ -42,6 +44,9 @@ def test_process_folder_exports_clean_reimbursement_file(tmp_path: Path):
     assert headers == REIMBURSEMENT_COLUMNS
     assert "原始文件名" not in headers
     assert "识别状态" not in headers
+    assert "错误信息" not in headers
+    assert "处理时间戳" not in headers
+    assert "置信度" not in headers
     assert ws.cell(row=2, column=1).value == "发票"
     assert ws.cell(row=2, column=9).value == 106.53
 

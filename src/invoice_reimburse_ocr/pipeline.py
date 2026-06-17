@@ -22,9 +22,13 @@ def process_folder(
     timestamp = datetime.now()
     output_dir = create_run_output_dir(output_base_dir, timestamp)
     files = discover_input_files(input_dir)
+    if not files:
+        raise ValueError(f"输入目录中未发现支持的图片或PDF文件：{input_dir}")
 
     records: list[InvoiceRecord] = []
-    for file_path in files:
+    total_files = len(files)
+    for index, file_path in enumerate(files, start=1):
+        print(f"[{index}/{total_files}] 正在处理：{file_path.name}")
         try:
             text = ocr_engine.extract_text(file_path)
             record = parse_invoice_text(text)
