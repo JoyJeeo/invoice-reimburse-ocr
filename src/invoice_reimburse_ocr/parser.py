@@ -9,6 +9,7 @@ from .models import InvoiceRecord
 def parse_invoice_text(text: str) -> InvoiceRecord:
     normalized = _normalize_text(text)
     record = InvoiceRecord(raw_text=text)
+    record.currency = _detect_currency(normalized)
     record.invoice_code = _first_match(normalized, [
         r"发票代码[:：]?\s*(\d{10,12})",
         r"\b(\d{10,12})\b(?=.*发票代码)",
@@ -22,17 +23,17 @@ def parse_invoice_text(text: str) -> InvoiceRecord:
         r"日期[:：]?\s*(\d{4}[年./-]\d{1,2}[月./-]\d{1,2}日?)",
     ]))
     record.amount_without_tax = _parse_amount(_first_match(normalized, [
-        r"合计金额[:：]?\s*[￥¥]?\s*([0-9,]+(?:\.\d{1,2})?)",
-        r"不含税金额[:：]?\s*[￥¥]?\s*([0-9,]+(?:\.\d{1,2})?)",
-        r"金额[:：]?\s*[￥¥]?\s*([0-9,]+(?:\.\d{1,2})?)",
+        r"合计金额[:：]?\s*(?:[￥¥$€£]|USD|EUR|GBP|HKD|JPY|CNY|RMB)?\s*([0-9,]+(?:\.\d{1,2})?)",
+        r"不含税金额[:：]?\s*(?:[￥¥$€£]|USD|EUR|GBP|HKD|JPY|CNY|RMB)?\s*([0-9,]+(?:\.\d{1,2})?)",
+        r"金额[:：]?\s*(?:[￥¥$€£]|USD|EUR|GBP|HKD|JPY|CNY|RMB)?\s*([0-9,]+(?:\.\d{1,2})?)",
     ]))
     record.tax_amount = _parse_amount(_first_match(normalized, [
-        r"合计税额[:：]?\s*[￥¥]?\s*([0-9,]+(?:\.\d{1,2})?)",
-        r"税额[:：]?\s*[￥¥]?\s*([0-9,]+(?:\.\d{1,2})?)",
+        r"合计税额[:：]?\s*(?:[￥¥$€£]|USD|EUR|GBP|HKD|JPY|CNY|RMB)?\s*([0-9,]+(?:\.\d{1,2})?)",
+        r"税额[:：]?\s*(?:[￥¥$€£]|USD|EUR|GBP|HKD|JPY|CNY|RMB)?\s*([0-9,]+(?:\.\d{1,2})?)",
     ]))
     record.total_amount = _parse_amount(_first_match(normalized, [
-        r"价税合计(?:\(小写\))?[:：]?\s*[￥¥]?\s*([0-9,]+(?:\.\d{1,2})?)",
-        r"含税金额[:：]?\s*[￥¥]?\s*([0-9,]+(?:\.\d{1,2})?)",
+        r"价税合计(?:\(小写\))?[:：]?\s*(?:[￥¥$€£]|USD|EUR|GBP|HKD|JPY|CNY|RMB)?\s*([0-9,]+(?:\.\d{1,2})?)",
+        r"含税金额[:：]?\s*(?:[￥¥$€£]|USD|EUR|GBP|HKD|JPY|CNY|RMB)?\s*([0-9,]+(?:\.\d{1,2})?)",
     ]))
     record.buyer_name = _first_match(normalized, [
         r"购买方名称[:：]?\s*([^\n]+)",
@@ -90,3 +91,18 @@ def _parse_amount(value: str) -> float | None:
 
 def _clean_tax_id(value: str) -> str:
     return re.sub(r"[^A-Z0-9]", "", value.upper())
+
+
+def _detect_currency(text: str) -> str:
+    currency_patterns = [
+        ("USD", [r"\bUSD\b", r"美元", r"US\$"]),
+        ("EUR", [r"\bEUR\b", r"欧元", r"€"]),
+        ("GBP", [r"\bGBP\b", r"英镑", r"£"]),
+        ("HKD", [r"\bHKD\b", r"港币", r"港元"]),
+        ("JPY", [r"\bJPY\b", r"日元"]),
+        ("CNY", [r"\bCNY\b", r"\bRMB\b", r"人民币", r"[￥¥]"]),
+    ]
+    for currency, patterns in currency_patterns:
+        if any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in patterns):
+            return currency
+    return "CNY"

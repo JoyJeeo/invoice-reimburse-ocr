@@ -39,7 +39,8 @@ def export_reimbursement(records: list[InvoiceRecord], output_dir: Path, timesta
         row = record.to_reimbursement_row()
         ws.append([row[column] for column in REIMBURSEMENT_COLUMNS])
     _format_sheet(ws)
-    _format_amount_columns(ws, [4, 5, 6])
+    _format_amount_columns(ws, [4, 5, 6, 8, 10])
+    _format_rate_column(ws, 9)
     wb.save(path)
     return path
 
@@ -49,10 +50,17 @@ def export_processing_log(records: list[InvoiceRecord], output_dir: Path) -> Pat
     wb = Workbook()
     ws = wb.active
     ws.title = "处理日志"
-    headers = ["原始文件名", "识别状态", "错误信息", "发票号码"]
+    headers = ["原始文件名", "识别状态", "错误信息", "发票号码", "币种", "汇率"]
     ws.append(headers)
     for record in records:
-        ws.append([record.source_file, record.status, "；".join(record.errors), record.invoice_number])
+        ws.append([
+            record.source_file,
+            record.status,
+            "；".join(record.errors),
+            record.invoice_number,
+            record.currency,
+            record.exchange_rate,
+        ])
     _format_sheet(ws)
     wb.save(path)
     return path
@@ -74,3 +82,8 @@ def _format_amount_columns(ws, columns: list[int]) -> None:
     for column in columns:
         for row in range(2, ws.max_row + 1):
             ws.cell(row=row, column=column).number_format = "0.00"
+
+
+def _format_rate_column(ws, column: int) -> None:
+    for row in range(2, ws.max_row + 1):
+        ws.cell(row=row, column=column).number_format = "0.0000"

@@ -27,3 +27,18 @@ def test_parse_invoice_text_extracts_core_fields():
     assert record.total_amount == 106.53
     assert record.buyer_name == "上海测试科技有限公司"
     assert record.seller_name == "北京服务有限公司"
+
+
+def test_parse_invoice_text_detects_foreign_currency():
+    text = """
+    Commercial Invoice
+    Currency: USD
+    发票代码: 031002300111
+    发票号码: 12345678
+    开票日期: 2026-06-17
+    价税合计: USD 100.50
+    """
+
+    record = parse_invoice_text(text)
+
+    assert record.currency == "USD"

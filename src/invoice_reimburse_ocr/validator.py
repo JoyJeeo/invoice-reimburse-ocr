@@ -15,7 +15,8 @@ def validate_records(records: list[InvoiceRecord]) -> None:
             errors.append("缺少发票号码")
         elif record.invoice_number in seen_numbers:
             errors.append("发票号码重复")
-        seen_numbers.add(record.invoice_number)
+        else:
+            seen_numbers.add(record.invoice_number)
 
         if not record.invoice_date:
             errors.append("缺少或无法解析开票日期")
@@ -41,6 +42,14 @@ def validate_records(records: list[InvoiceRecord]) -> None:
         ]:
             if tax_id and len(tax_id) not in {18, 20}:
                 errors.append(f"{field_name}长度异常")
+
+        if record.currency != "CNY":
+            if record.exchange_rate is None:
+                errors.append("缺少外币汇率")
+            elif record.exchange_rate <= 0:
+                errors.append("外币汇率必须大于0")
+        if record.currency != "CNY" and record.rmb_amount is None and record.total_amount is not None:
+            errors.append("缺少人民币费用")
 
         record.errors.extend(errors)
         record.status = "待人工复核" if record.errors else "成功"

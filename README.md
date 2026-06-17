@@ -9,6 +9,7 @@
   - `sidecar`：读取同名 `.txt` 文件，适合开发、测试和无 OCR 环境演示。
   - `paddle`：使用 PaddleOCR 做真实本地 OCR。
 - 解析发票代码、号码、日期、金额、购销方名称和税号。
+- 若识别到外币发票，会提示输入对应人民币汇率，也可通过 `--exchange-rate USD=7.25` 预先指定。
 - 自动校验必填字段、金额、日期和同批次重复发票号码。
 - 导出到 `outputs/YYYYMMDD_HHMMSS/`：
   - `发票报销模板.xlsx`
@@ -45,6 +46,12 @@ invoice-ocr --input ./invoices --ocr-engine sidecar
 
 ```bash
 invoice-ocr --input ./invoices --ocr-engine paddle
+```
+
+外币发票可直接传入汇率：
+
+```bash
+invoice-ocr --input ./invoices --ocr-engine sidecar --exchange-rate USD=7.25 --exchange-rate EUR=7.80
 ```
 
 指定输出根目录：

@@ -12,6 +12,10 @@ REIMBURSEMENT_COLUMNS = [
     "不含税金额",
     "税额",
     "价税合计",
+    "币种",
+    "原币种费用",
+    "汇率",
+    "人民币费用",
     "购买方名称",
     "购买方纳税人识别号",
     "销售方名称",
@@ -27,6 +31,10 @@ class InvoiceRecord:
     amount_without_tax: Optional[float] = None
     tax_amount: Optional[float] = None
     total_amount: Optional[float] = None
+    currency: str = "CNY"
+    original_currency_amount: Optional[float] = None
+    exchange_rate: Optional[float] = 1.0
+    rmb_amount: Optional[float] = None
     buyer_name: str = ""
     buyer_tax_id: str = ""
     seller_name: str = ""
@@ -46,6 +54,10 @@ class InvoiceRecord:
             "不含税金额": self.amount_without_tax,
             "税额": self.tax_amount,
             "价税合计": self.total_amount,
+            "币种": self.currency,
+            "原币种费用": self.original_currency_amount,
+            "汇率": self.exchange_rate,
+            "人民币费用": self.rmb_amount,
             "购买方名称": self.buyer_name,
             "购买方纳税人识别号": self.buyer_tax_id,
             "销售方名称": self.seller_name,
