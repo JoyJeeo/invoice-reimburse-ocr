@@ -5,6 +5,8 @@ __pycache__/
 outputs/
 invoices/*
 !invoices/.gitkeep
+.conda-envs/
+.conda-pkgs/
 
 # C extensions
 *.so

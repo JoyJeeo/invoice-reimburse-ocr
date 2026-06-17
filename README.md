@@ -40,6 +40,15 @@ conda activate invoice-reimburse-ocr
 pip install -e ".[test]"
 ```
 
+如果本机 Conda 的全局缓存或 `~/.conda` 没有写权限，可将环境和包缓存放在项目本地：
+
+```bash
+mkdir -p .conda-envs .conda-pkgs
+CONDA_PKGS_DIRS="$PWD/.conda-pkgs" CONDA_ENVS_DIRS="$PWD/.conda-envs" conda --no-plugins env create --solver classic -f environment.yml
+.conda-envs/invoice-reimburse-ocr/bin/python -m pip install -e ".[test]"
+.conda-envs/invoice-reimburse-ocr/bin/python -m pytest
+```
+
 如需真实 OCR，再根据本机系统安装 PaddleOCR 相关依赖：
 
 ```bash
