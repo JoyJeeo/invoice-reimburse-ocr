@@ -26,6 +26,15 @@
 推荐使用 Conda：
 
 ```bash
+conda create -n invoice-reimburse-ocr python=3.9 -y
+conda activate invoice-reimburse-ocr
+pip install -r requirements.txt
+pip install -e ".[test]"
+```
+
+也可以直接从环境文件创建：
+
+```bash
 conda env create -f environment.yml
 conda activate invoice-reimburse-ocr
 pip install -e ".[test]"
@@ -65,6 +74,21 @@ invoice-ocr --input ./invoices --ocr-engine sidecar --exchange-rate USD=7.25 --e
 invoice-ocr --input ./invoices --output .
 ```
 
+也可以使用手册约定的根入口：
+
+```bash
+python main.py --input ./invoices --ocr-engine sidecar
+```
+
+输出示例：
+
+```text
+outputs/20260618_143022/
+├── 发票报销模板.xlsx
+├── 报销明细_20260618_143022.xlsx
+└── 处理日志.xlsx
+```
+
 ## 测试
 
 ```bash
@@ -72,3 +96,15 @@ pytest
 ```
 
 当前测试覆盖文件扫描、图像预处理、字段解析、外币换算、付款记录、去重、Excel 导出、输出目录结构和空目录错误处理。
+
+`tests/fixtures/` 目录已预留给脱敏样本图片。当前自动化测试使用轻量生成样本和 sidecar 文本，避免真实票据进入仓库。
+
+## FAQ
+
+**为什么 PaddleOCR 依赖没有默认安装？**
+
+PaddlePaddle 需要按 CPU/GPU、系统和芯片选择安装包。基础环境先保证解析、导出和测试可运行，真实 OCR 环境再按本机情况安装 `paddleocr paddlepaddle opencv-python`。
+
+**真实发票会被提交到 Git 吗？**
+
+不会。`invoices/` 目录下除 `.gitkeep` 外默认被忽略。
