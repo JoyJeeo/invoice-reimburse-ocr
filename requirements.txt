@@ -1,0 +1,8 @@
+openpyxl>=3.1.2
+pandas>=2.0.0
+Pillow>=10.0.0
+
+# 可选：真实 OCR 运行环境需要安装以下依赖。
+# paddleocr>=2.7.0
+# paddlepaddle>=2.5.0
+# opencv-python>=4.8.0

@@ -1,0 +1,15 @@
+name: invoice-reimburse-ocr
+channels:
+  - conda-forge
+dependencies:
+  - python=3.9
+  - pip
+  - openpyxl>=3.1.2
+  - pandas>=2.0.0
+  - pillow>=10.0.0
+  - pytest>=7.4.0
+  - pip:
+      # 如需真实 OCR，取消注释并按本机芯片/系统安装合适版本。
+      # - paddleocr>=2.7.0
+      # - paddlepaddle>=2.5.0
+      # - opencv-python>=4.8.0
